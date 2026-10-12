@@ -152,6 +152,17 @@ export class AuthController {
   @Get('me') async me(@Req() req: AuthRequest) {
     return this.auth.me(req.actor);
   }
+  @Get('business/:slug') @Public() async business(@Param('slug') slug: string) {
+    return this.auth.publicBusiness(
+      parse(
+        z
+          .string()
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+          .max(100),
+        slug,
+      ),
+    );
+  }
   @Get('google/config') @Public() async googleConfig(@Res({ passthrough: true }) res: Response) {
     const config = await this.google.challenge();
     res.setHeader('Cache-Control', 'no-store');

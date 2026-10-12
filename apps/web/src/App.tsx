@@ -1,4 +1,5 @@
 import { AuthPage } from './pages/AuthPage';
+import { entryContext, matchesEntry } from './lib/access';
 import { GoogleButton } from './components/GoogleButton';
 import { Avatar, Badge, Empty, Field, Select, Kpi } from './components/shared';
 import { useEffect, useState, useRef, lazy, Suspense, type ReactNode } from 'react';
@@ -243,9 +244,12 @@ export default function App() {
   };
   useEffect(() => {
     let active = true;
-    void restoreSession().then((identity) => {
+    void restoreSession().then(async (identity) => {
       if (!active) return;
-      if (identity) acceptSession(identity);
+      if (identity && matchesEntry(identity, entryContext(location.pathname, location.search)))
+        acceptSession(identity);
+      else if (identity) await logout().catch(() => {});
+      if (!active) return;
       setRestoring(false);
     });
     return () => {
@@ -1687,6 +1691,39 @@ export default function App() {
               </div>
             </CardContent>
           </Card>
+          {(role === 'EMPRESA' || role === 'BARBEIRO') && user?.companySlug && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Link para seus clientes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="card-caption">
+                  Envie este link para o cliente entrar ou criar sua conta em {workspaceName}.
+                </p>
+                <Input
+                  className="mt-4"
+                  readOnly
+                  aria-label="Link da barbearia para clientes"
+                  value={`${location.origin}/cliente?empresa=${encodeURIComponent(user.companySlug)}`}
+                />
+                <Button
+                  className="mt-4"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(
+                        `${location.origin}/cliente?empresa=${encodeURIComponent(user.companySlug!)}`,
+                      );
+                      toast.success('Link copiado.');
+                    } catch {
+                      toast.error('Selecione e copie o link acima.');
+                    }
+                  }}
+                >
+                  Copiar link
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       );
     return null;
@@ -1741,13 +1778,7 @@ export default function App() {
     return (
       <AuthPage
         onSession={acceptSession}
-        initialPortal={
-          location.pathname.startsWith('/master')
-            ? 'master'
-            : location.pathname.startsWith('/cliente')
-              ? 'client'
-              : 'team'
-        }
+        initialPortal={entryContext(location.pathname, location.search).portal}
         onDemo={(demoRole) => {
           setRole(demoRole);
           setUser(null);
@@ -1781,7 +1812,13 @@ export default function App() {
             <Scissors size={22} />
           </span>
           <span>
-            barber<span className="brand-hub">hub</span>
+            {role === 'MASTER' ? (
+              <>
+                barber<span className="brand-hub">hub</span>
+              </>
+            ) : (
+              workspaceName
+            )}
             <span className="brand-dot">.</span>
           </span>
         </a>

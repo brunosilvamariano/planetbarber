@@ -75,6 +75,14 @@ export class AuthService {
       return this.identity(user, company);
     });
   }
+  async publicBusiness(slug: string) {
+    return this.db.transaction(systemActor, async (tx) => {
+      const company = await tx.company.findUnique({ where: { slug } });
+      if (!company || company.status !== 'ACTIVE' || slug === 'master')
+        throw new ForbiddenException('Link da barbearia indisponível.');
+      return { name: company.name, slug: company.slug };
+    });
+  }
   async login(slug: string, email: string, password: string, portal?: AuthPortal) {
     return this.db.transaction(systemActor, async (tx) => {
       const company = await tx.company.findUnique({ where: { slug }, include: { plan: true } });

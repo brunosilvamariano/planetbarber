@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Scissors, ShieldCheck, Building2, UserRound, ArrowRight } from 'lucide-react';
+import { Scissors, ShieldCheck, Building2, UserRound, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Field } from '../components/shared';
@@ -57,14 +58,30 @@ export function AuthPage({
   onDemo: (role: Role) => void;
   initialPortal?: AuthPortal;
 }) {
-  const [portal, setPortal] = useState<AuthPortal>(initialPortal);
+  const portal = initialPortal;
+  const tenantSlug =
+    portal === 'master' ? '' : new URLSearchParams(location.search).get('empresa') || '';
+  const [showPassword, setShowPassword] = useState(false);
+  const business = useQuery({
+    queryKey: ['public-business', tenantSlug],
+    enabled: !!tenantSlug,
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/auth/business/${encodeURIComponent(tenantSlug)}`, {
+        signal,
+      });
+      if (!response.ok)
+        throw new Error('Link da barbearia indisponível. Peça um novo link à equipe.');
+      return response.json() as Promise<{ name: string; slug: string }>;
+    },
+  });
   const [signup, setSignup] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
-      slug: '',
+      slug: tenantSlug,
       email: '',
       password: '',
       name: '',
@@ -74,7 +91,8 @@ export function AuthPage({
     },
   });
   const info = portals[portal];
-  const businessSlug = (values: Values) => (portal === 'master' ? 'master' : values.slug.trim());
+  const businessSlug = (values: Values) =>
+    portal === 'master' ? 'master' : tenantSlug || values.slug.trim();
   const validateRegistration = (values: Values) => {
     if (signup && values.password.length < 12)
       throw new Error('Crie uma senha com pelo menos 12 caracteres.');
@@ -98,7 +116,7 @@ export function AuthPage({
       const result = signup
         ? portal === 'client'
           ? await registerClient({
-              slug: values.slug,
+              slug: businessSlug(values),
               name: values.name,
               phone: values.phone,
               email: values.email,
@@ -126,12 +144,13 @@ export function AuthPage({
             <Scissors size={22} />
           </span>
           <span>
-            barberhub<span className="brand-dot">.</span>
+            {tenantSlug ? business.data?.name || 'Sua barbearia' : 'barberhub'}
+            <span className="brand-dot">.</span>
           </span>
         </a>
         <div>
           <span className="auth-eyebrow">{info.label.toUpperCase()}</span>
-          <h1>{info.title}</h1>
+          <h1>{tenantSlug ? business.data?.name || 'Bem-vindo à sua barbearia' : info.title}</h1>
           <p>{info.description}</p>
           <div className="auth-separation">
             <ShieldCheck size={20} />
@@ -141,27 +160,6 @@ export function AuthPage({
         <small>Gestão que acompanha o ritmo de cada atendimento.</small>
       </section>
       <main className="auth-main">
-        <nav className="auth-portals" aria-label="Área de acesso">
-          {(Object.keys(portals) as AuthPortal[]).map((p) => (
-            <button
-              key={p}
-              aria-pressed={portal === p}
-              onClick={() => {
-                setPortal(p);
-                history.replaceState(
-                  null,
-                  '',
-                  p === 'master' ? '/master' : p === 'client' ? '/cliente' : '/app',
-                );
-                setSignup(false);
-                setError('');
-                form.reset();
-              }}
-            >
-              {portals[p].label}
-            </button>
-          ))}
-        </nav>
         <div className="auth-form-card">
           <info.icon size={27} className="text-primary" />
           <h2>
@@ -189,7 +187,7 @@ export function AuthPage({
                 <Input {...form.register('company')} required />
               </Field>
             )}
-            {portal !== 'master' && (
+            {portal !== 'master' && !tenantSlug && (
               <Field
                 label={
                   signup && portal === 'team'
@@ -217,13 +215,25 @@ export function AuthPage({
               )}
             </Field>
             <Field label="Senha">
-              <Input
-                type="password"
-                autoComplete={signup ? 'new-password' : 'current-password'}
-                {...form.register('password')}
-                minLength={signup ? 12 : 8}
-                required
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  className="pr-12"
+                  autoComplete={signup ? 'new-password' : 'current-password'}
+                  {...form.register('password')}
+                  minLength={signup ? 12 : 8}
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               {form.formState.errors.password && (
                 <small role="alert">{form.formState.errors.password.message}</small>
               )}
@@ -239,16 +249,23 @@ export function AuthPage({
                 {error}
               </p>
             )}
-            <Button disabled={busy} type="submit">
+            {tenantSlug && business.isPending && <p role="status">Carregando sua barbearia…</p>}
+            {business.error && (
+              <p className="auth-error" role="alert">
+                {business.error.message}
+              </p>
+            )}
+            <Button disabled={busy || (!!tenantSlug && !business.data)} type="submit">
               {busy ? 'Aguarde…' : signup ? 'Criar conta' : 'Entrar'}
               <ArrowRight size={16} />
             </Button>
           </form>
-          {portal !== 'master' && (
+          {portal !== 'master' && !(portal === 'team' && tenantSlug) && (
             <button
               className="auth-text-button"
               onClick={() => {
                 setSignup(!signup);
+                setShowPassword(false);
                 setError('');
               }}
             >
@@ -265,7 +282,7 @@ export function AuthPage({
               área.
             </p>
           )}
-          {!(signup && portal === 'team') && (
+          {!(signup && portal === 'team') && (!tenantSlug || business.data) && (
             <>
               <div className="auth-divider">ou</div>
               <GoogleButton
@@ -299,18 +316,22 @@ export function AuthPage({
               />
             </>
           )}
-          <div className="auth-demo">
-            <p>Quer conhecer antes de entrar?</p>
-            <Button
-              variant="ghost"
-              onClick={() =>
-                onDemo(portal === 'master' ? 'MASTER' : portal === 'client' ? 'CLIENTE' : 'EMPRESA')
-              }
-            >
-              Abrir demonstração de {info.label.toLowerCase()}
-            </Button>
-            <small>Dados fictícios. Não é uma sessão autenticada.</small>
-          </div>
+          {!tenantSlug && (
+            <div className="auth-demo">
+              <p>Quer conhecer antes de entrar?</p>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  onDemo(
+                    portal === 'master' ? 'MASTER' : portal === 'client' ? 'CLIENTE' : 'EMPRESA',
+                  )
+                }
+              >
+                Abrir demonstração de {info.label.toLowerCase()}
+              </Button>
+              <small>Dados fictícios. Não é uma sessão autenticada.</small>
+            </div>
+          )}
         </div>
       </main>
     </div>
