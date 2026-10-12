@@ -83,6 +83,7 @@ import {
 } from './lib/data';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const MasterDashboard = lazy(() => import('./pages/MasterDashboard'));
 const navigation = [
   { id: 'dashboard', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'agenda', label: 'Agenda', icon: CalendarDays },
@@ -558,72 +559,16 @@ export default function App() {
     />
   );
 
-  const masterDashboard = () => {
-    const companies = data?.companies || [],
-      active = companies.filter((c) => c.status === 'ACTIVE'),
-      mrr = active.reduce((s, c) => s + (c.plan.priceCents || 0), 0);
-    return (
-      <>
-        <div className="stats-grid">
-          <Kpi title="Empresas ativas" value={String(active.length)} icon={Building2} />
-          <Kpi title="MRR" value={money(mrr)} icon={Wallet} />
-          <Kpi title="ARR projetado" value={money(mrr * 12)} icon={TrendingUp} />
-          <Kpi
-            title="Empresas canceladas"
-            value={String(companies.filter((c) => c.status === 'CANCELLED').length)}
-            icon={Users}
-          />
-        </div>
-        <div className="stats-grid mt-5">
-          <Kpi
-            title="Barbeiros"
-            value={String(companies.reduce((s, c) => s + c.barbers, 0))}
-            icon={Scissors}
-          />
-          <Kpi
-            title="Clientes cadastrados"
-            value={String(companies.reduce((s, c) => s + c.clients, 0))}
-            icon={Users}
-          />
-          <Kpi
-            title="Empresas suspensas"
-            value={String(companies.filter((c) => c.status === 'SUSPENDED').length)}
-            icon={ShieldCheck}
-          />
-          <Kpi title="Empresas cadastradas" value={String(companies.length)} icon={Building2} />
-        </div>
-        <div className="stats-grid three mt-5">
-          <Kpi
-            title="Agendamentos na plataforma"
-            value={String(data?.metrics?.appointments || data?.appointments.length || 0)}
-            icon={CalendarDays}
-          />
-          <Kpi
-            title="Churn do mês"
-            value={`${(data?.metrics?.churnPercent || 0).toFixed(1)}%`}
-            icon={TrendingUp}
-          />
-          <Kpi
-            title="Assinaturas canceladas"
-            value={String(
-              data?.metrics?.cancelledCompanies ||
-                companies.filter((c) => c.status === 'CANCELLED').length,
-            )}
-            icon={Users}
-          />
-        </div>
-        <div className="notice mt-5">
-          <BarChart3 size={18} />
-          <p>
-            MRR considera assinaturas ativas com preço conhecido. ARR é a projeção de 12 meses.
-            Churn representa cancelamentos no mês em relação às empresas existentes no início do
-            período.
-          </p>
-        </div>
-        {companiesTable()}
-      </>
-    );
-  };
+  const masterDashboard = () =>
+    data ? (
+      <MasterDashboard
+        data={data}
+        name={displayName}
+        companiesTable={companiesTable()}
+        createCompany={() => setDialog('company-create')}
+        go={go}
+      />
+    ) : null;
   const companiesTable = () => (
     <Card className="mt-5">
       <CardHeader>
@@ -1778,6 +1723,8 @@ export default function App() {
     return (
       <AuthPage
         onSession={acceptSession}
+        theme={theme}
+        onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         initialPortal={entryContext(location.pathname, location.search).portal}
         onDemo={(demoRole) => {
           setRole(demoRole);
@@ -1790,7 +1737,7 @@ export default function App() {
       />
     );
   return (
-    <div className="app-shell">
+    <div className={cn('app-shell', role === 'MASTER' && 'master-shell')}>
       {mobile && <div className="mobile-overlay" onClick={() => setMobile(false)} />}
       <aside
         id="workspace-sidebar"
@@ -2024,7 +1971,12 @@ export default function App() {
           </div>
         </header>
         <main>
-          <div className="page-heading">
+          <div
+            className={cn(
+              'page-heading',
+              page === 'dashboard' && role === 'MASTER' && 'master-page-heading',
+            )}
+          >
             <div>
               <div className="heading-eyebrow">
                 {page === 'dashboard' ? 'SEU NEGÓCIO, EM PERSPECTIVA' : workspaceName.toUpperCase()}

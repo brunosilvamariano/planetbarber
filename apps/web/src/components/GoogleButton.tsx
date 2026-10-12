@@ -41,8 +41,10 @@ function loadSdk() {
 }
 export function GoogleButton({
   onCredential,
+  quiet = false,
 }: {
   onCredential: (credential: string) => Promise<void>;
+  quiet?: boolean;
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const callback = useRef(onCredential);
@@ -87,9 +89,10 @@ export function GoogleButton({
     };
   }, [attempt]);
   return (
-    <div className="google-access">
+    <div className="google-access" hidden={quiet && !!state}>
+      {quiet && !state && <div className="auth-divider">ou</div>}
       <div ref={holder} />
-      {state && <p className="auth-note">{state}</p>}
+      {state && !quiet && <p className="auth-note">{state}</p>}
     </div>
   );
 }

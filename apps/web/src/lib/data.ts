@@ -70,6 +70,7 @@ export interface Product {
   costCents: number;
 }
 export interface Company {
+  createdAt?: string;
   id: string;
   name: string;
   slug: string;

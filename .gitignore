@@ -7,3 +7,4 @@ work/
 uploads/
 coverage/
 *.log
+*.tsbuildinfo

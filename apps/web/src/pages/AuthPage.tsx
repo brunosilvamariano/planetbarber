@@ -1,9 +1,21 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { AuthVisual } from '../components/AuthVisual';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Scissors, ShieldCheck, Building2, UserRound, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import {
+  Scissors,
+  ShieldCheck,
+  Building2,
+  UserRound,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Sun,
+  Moon,
+  LockKeyhole,
+} from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Field } from '../components/shared';
@@ -53,10 +65,14 @@ export function AuthPage({
   onSession,
   onDemo,
   initialPortal = 'team',
+  theme = 'dark',
+  onThemeToggle,
 }: {
   onSession: (user: any) => void;
   onDemo: (role: Role) => void;
   initialPortal?: AuthPortal;
+  theme?: string;
+  onThemeToggle?: () => void;
 }) {
   const portal = initialPortal;
   const tenantSlug =
@@ -137,7 +153,7 @@ export function AuthPage({
     }
   });
   return (
-    <div className="auth-shell">
+    <div className={`auth-shell auth-premium auth-${portal}`}>
       <section className="auth-story">
         <a className="brand" href="#">
           <span className="brand-mark">
@@ -148,7 +164,7 @@ export function AuthPage({
             <span className="brand-dot">.</span>
           </span>
         </a>
-        <div>
+        <div className="auth-story-copy">
           <span className="auth-eyebrow">{info.label.toUpperCase()}</span>
           <h1>{tenantSlug ? business.data?.name || 'Bem-vindo à sua barbearia' : info.title}</h1>
           <p>{info.description}</p>
@@ -157,17 +173,44 @@ export function AuthPage({
             <span>Uma conta. Seu perfil. Seus dados protegidos.</span>
           </div>
         </div>
-        <small>Gestão que acompanha o ritmo de cada atendimento.</small>
+        <AuthVisual master={portal === 'master'} />
+        <small className="auth-story-footer">
+          Feito para quem cuida de pessoas. <span>Com atenção a cada detalhe.</span>
+        </small>
       </section>
       <main className="auth-main">
+        <div className="auth-topline">
+          <span>
+            <LockKeyhole size={13} /> Acesso seguro
+          </span>
+          {onThemeToggle && (
+            <button
+              type="button"
+              className="auth-theme-button"
+              onClick={onThemeToggle}
+              aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+          )}
+        </div>
         <div className="auth-form-card">
-          <info.icon size={27} className="text-primary" />
+          <div className="auth-entry-icon">
+            <info.icon size={25} />
+          </div>
+          <span className="auth-form-eyebrow">
+            {portal === 'master'
+              ? 'ACESSO DO PROPRIETÁRIO'
+              : portal === 'client'
+                ? 'SEU ESPAÇO'
+                : 'SUA BARBEARIA'}
+          </span>
           <h2>
             {signup
               ? portal === 'team'
                 ? 'Crie sua barbearia'
                 : 'Crie sua conta'
-              : 'Bem-vindo de volta'}
+              : 'Bom ter você aqui.'}
           </h2>
           <p>
             {signup
@@ -284,8 +327,8 @@ export function AuthPage({
           )}
           {!(signup && portal === 'team') && (!tenantSlug || business.data) && (
             <>
-              <div className="auth-divider">ou</div>
               <GoogleButton
+                quiet
                 key={`${portal}:${signup}`}
                 onCredential={async (credential) => {
                   setBusy(true);

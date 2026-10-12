@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import '@fontsource-variable/inter';
 import './styles.css';
+import './premium.css';
 import App from './App';
 const client = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15000 } },
