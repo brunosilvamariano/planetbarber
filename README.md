@@ -1,4 +1,4 @@
-# BarberHub
+# PlanetBarber
 
 SaaS para gestão de barbearias, com frontend React/Vite e API NestJS/PostgreSQL.
 

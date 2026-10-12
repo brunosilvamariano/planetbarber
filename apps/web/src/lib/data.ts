@@ -731,7 +731,7 @@ export async function exportReport(kind: string, format: 'pdf' | 'xlsx', from: s
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `barberhub-${kind}.${format}`;
+    a.download = `planetbarber-${kind}.${format}`;
     a.click();
     URL.revokeObjectURL(url);
   } else if (format === 'pdf') {
@@ -753,7 +753,7 @@ export async function exportReport(kind: string, format: 'pdf' | 'xlsx', from: s
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'barberhub-financeiro.csv';
+    a.download = 'planetbarber-financeiro.csv';
     a.click();
     URL.revokeObjectURL(url);
   }

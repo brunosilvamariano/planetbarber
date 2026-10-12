@@ -5,7 +5,7 @@ O login e o painel Master usam superfícies suaves, hierarquia tipográfica e es
 ## Tokens e composição
 
 - Cores semânticas: background, foreground, card, primary, border e muted-foreground existentes, com versões clara e escura.
-- Superfícies: raio de 22 px para painéis, 19 px para indicadores e 12 px para campos. Sombras discretas e destaque violeta para a receita recorrente.
+- Superfícies: raio de 22 px para painéis, 19 px para indicadores e 12 px para campos. Sombras discretas e destaque azul para a receita recorrente.
 - Tipografia: Inter variável, títulos de 26–38 px no painel, 28–32 px no formulário e texto auxiliar de 10–12 px.
 - Responsividade: indicadores em quatro ou duas colunas, gráficos em uma coluna no celular, tabela com rolagem interna e sidebar responsiva existente.
 - Acessibilidade: foco de teclado preservado, botões de período com aria-pressed, descrições textuais dos gráficos, mostrar/ocultar senha e respeito a prefers-reduced-motion.

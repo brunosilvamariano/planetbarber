@@ -17,7 +17,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { money, dateLabel } from '../lib/utils';
 import type { Snapshot, Appointment, Client, Role } from '../lib/data';
-const colors = ['#9c7bff', '#7255cc', '#b99cff', '#57436f', '#d5c4ff'];
+const colors = ['#60a5fa', '#2563eb', '#93c5fd', '#1e40af', '#bfdbfe'];
 interface Props {
   data?: Snapshot;
   role: Role;
@@ -102,8 +102,8 @@ export default function Dashboard({
                 <AreaChart data={chartData} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}>
                   <defs>
                     <linearGradient id="revenue-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#9c7bff" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#9c7bff" stopOpacity={0.01} />
+                      <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.01} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="var(--border)" />
@@ -134,7 +134,7 @@ export default function Dashboard({
                   <Area
                     type="monotone"
                     dataKey="value"
-                    stroke="#9c7bff"
+                    stroke="#60a5fa"
                     strokeWidth={2.5}
                     fill="url(#revenue-fill)"
                   />

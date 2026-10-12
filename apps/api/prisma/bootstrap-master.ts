@@ -62,7 +62,7 @@ async function main() {
           where: { slug: 'master' },
           create: {
             tenantId: SYSTEM_TENANT,
-            name: 'BarberHub Platform',
+            name: 'PlanetBarber Platform',
             slug: 'master',
             planId: plan.id,
             dueAt: new Date('2100-01-01'),

@@ -124,7 +124,7 @@ const formSchema = z.object({
   consent: z.boolean().optional(),
 });
 type FormValues = z.infer<typeof formSchema>;
-const colors = ['#9c7bff', '#7255cc', '#b99cff', '#57436f', '#d5c4ff'];
+const colors = ['#60a5fa', '#2563eb', '#93c5fd', '#1e40af', '#bfdbfe'];
 
 export default function App() {
   const qc = useQueryClient();
@@ -318,7 +318,7 @@ export default function App() {
       : role === 'MASTER'
         ? 'Admin Master'
         : 'Lucas Oliveira');
-  const workspaceName = role === 'MASTER' ? 'BarberHub' : user?.companyName || 'Studio Original';
+  const workspaceName = role === 'MASTER' ? 'PlanetBarber' : user?.companyName || 'Studio Original';
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -1617,7 +1617,7 @@ export default function App() {
               <div className="dre-row">
                 <div>
                   <b>Aparência</b>
-                  <p className="card-caption">Escolha como o BarberHub aparece para você.</p>
+                  <p className="card-caption">Escolha como o PlanetBarber aparece para você.</p>
                 </div>
                 <Button
                   variant="outline"
@@ -1694,7 +1694,7 @@ export default function App() {
   const subtitles: Record<string, string> = {
     dashboard:
       role === 'MASTER'
-        ? 'Acompanhe os negócios que crescem com o BarberHub.'
+        ? 'Acompanhe os negócios que crescem com o PlanetBarber.'
         : role === 'CLIENTE'
           ? 'Seu cuidado, no seu tempo.'
           : 'Sua barbearia em sintonia. Confira os resultados.',
@@ -1710,7 +1710,7 @@ export default function App() {
     relatorios: 'Os números que ajudam seu negócio a evoluir.',
     empresas: 'Gerencie as barbearias da sua plataforma.',
     planos: 'O próximo passo do seu negócio começa aqui.',
-    configuracoes: 'Seu BarberHub, do seu jeito.',
+    configuracoes: 'Seu PlanetBarber, do seu jeito.',
   };
 
   if (restoring)
@@ -1761,7 +1761,7 @@ export default function App() {
           <span>
             {role === 'MASTER' ? (
               <>
-                barber<span className="brand-hub">hub</span>
+                planet<span className="brand-hub">barber</span>
               </>
             ) : (
               workspaceName
@@ -2052,7 +2052,7 @@ export default function App() {
           <footer className="main-footer">
             <span>Feito para quem cuida de pessoas.</span>
             <span>
-              BarberHub <span className="footer-version">v0.1</span>
+              PlanetBarber <span className="footer-version">v0.1</span>
             </span>
           </footer>
         </main>
@@ -2592,7 +2592,7 @@ export default function App() {
           <div className="rating-stars">
             {[1, 2, 3, 4, 5].map((n) => (
               <button key={n} aria-label={`${n} estrelas`} onClick={() => setRating(n)}>
-                <Star size={30} fill={n <= rating ? '#b99cff' : 'none'} className="text-primary" />
+                <Star size={30} fill={n <= rating ? '#93c5fd' : 'none'} className="text-primary" />
               </button>
             ))}
           </div>
@@ -2615,7 +2615,7 @@ export default function App() {
         open={dialog === 'account'}
         onOpenChange={() => setDialog('')}
         title="Sua conta"
-        description="Gerencie seu acesso ao BarberHub."
+        description="Gerencie seu acesso ao PlanetBarber."
       >
         <div className="form-grid">
           <p>
@@ -2870,7 +2870,7 @@ export default function App() {
       <Dialog
         open={dialog === 'help'}
         onOpenChange={() => setDialog('')}
-        title="Bem-vindo ao BarberHub"
+        title="Bem-vindo ao PlanetBarber"
         description="Um guia rápido para explorar sua barbearia."
       >
         <div className="help-content">

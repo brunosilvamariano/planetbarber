@@ -30,7 +30,7 @@ import { money } from '../lib/utils';
 import { Button } from '../components/ui/button';
 import { masterAnalytics } from '../lib/master-analytics';
 
-const palette = ['#8b7bf4', '#6fa8ef', '#5dc6b2', '#e7ba77'];
+const palette = ['#3b82f6', '#6fa8ef', '#5dc6b2', '#e7ba77'];
 const tooltipStyle = {
   background: 'var(--card)',
   border: '1px solid var(--border)',
@@ -63,7 +63,7 @@ export default function MasterDashboard({
   const statuses = [
     { name: 'Ativas', value: active, color: '#66c5b3' },
     { name: 'Suspensas', value: analytics.suspended.length, color: '#e7ba77' },
-    { name: 'Canceladas', value: analytics.cancelled.length, color: '#a8a7ba' },
+    { name: 'Canceladas', value: analytics.cancelled.length, color: '#94a3b8' },
   ];
   const stats = [
     {
@@ -163,8 +163,8 @@ export default function MasterDashboard({
               >
                 <defs>
                   <linearGradient id="master-acquisition-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8b7bf4" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#8b7bf4" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 6" />
@@ -189,7 +189,7 @@ export default function MasterDashboard({
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke="#8b7bf4"
+                  stroke="#3b82f6"
                   strokeWidth={3}
                   fill="url(#master-acquisition-fill)"
                   isAnimationActive={false}

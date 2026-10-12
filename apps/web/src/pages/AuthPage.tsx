@@ -57,7 +57,7 @@ const portals = {
     label: 'Plataforma',
     title: 'Sua plataforma, em perspectiva.',
     description:
-      'Acesso exclusivo do proprietário do BarberHub. Gerencie empresas, planos e indicadores.',
+      'Acesso exclusivo do proprietário do PlanetBarber. Gerencie empresas, planos e indicadores.',
     icon: ShieldCheck,
   },
 };
@@ -160,7 +160,7 @@ export function AuthPage({
             <Scissors size={22} />
           </span>
           <span>
-            {tenantSlug ? business.data?.name || 'Sua barbearia' : 'barberhub'}
+            {tenantSlug ? business.data?.name || 'Sua barbearia' : 'planetbarber'}
             <span className="brand-dot">.</span>
           </span>
         </a>

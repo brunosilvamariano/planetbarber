@@ -627,7 +627,7 @@ export class ReportsController {
         ? 'application/pdf'
         : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
-    res.setHeader('Content-Disposition', `attachment; filename="barberhub-${kind}.${format}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="planetbarber-${kind}.${format}"`);
     res.send(result);
   }
 }

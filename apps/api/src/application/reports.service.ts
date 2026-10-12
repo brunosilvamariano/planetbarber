@@ -98,7 +98,7 @@ export class ReportsService {
     });
     if (format === 'xlsx') {
       const book = new ExcelJS.Workbook();
-      book.creator = 'BarberHub';
+      book.creator = 'PlanetBarber';
       const sheet = book.addWorksheet(kind);
       const keys = rows.length ? Object.keys(rows[0]) : ['Nenhum registro no período'];
       sheet.columns = keys.map((key) => ({ header: key, key, width: 28 }));
@@ -114,7 +114,7 @@ export class ReportsService {
       doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
-      doc.fontSize(24).fillColor('#8052df').text(`BarberHub · ${kind}`);
+      doc.fontSize(24).fillColor('#1d4ed8').text(`PlanetBarber · ${kind}`);
       doc
         .moveDown()
         .fillColor('#444444')
