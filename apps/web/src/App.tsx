@@ -1,3 +1,9 @@
+import { FilterSelect } from './components/FilterSelect';
+import { ClientPodium } from './components/ClientPodium';
+import { DatePicker } from './components/DatePicker';
+import { shiftDate } from './lib/calendar';
+import { PlanSelect } from './components/PlanSelect';
+import { CompanyAccessDialog } from './components/CompanyAccessDialog';
 import { AuthPage } from './pages/AuthPage';
 import { entryContext, matchesEntry } from './lib/access';
 import { GoogleButton } from './components/GoogleButton';
@@ -82,19 +88,26 @@ import {
   type Appointment,
 } from './lib/data';
 
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'));
+const MembershipPage = lazy(() => import('./pages/MembershipPage'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const MasterDashboard = lazy(() => import('./pages/MasterDashboard'));
 const navigation = [
   { id: 'dashboard', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'agenda', label: 'Agenda', icon: CalendarDays },
+  { id: 'chat', label: 'Conversas', icon: MessageCircle },
+  { id: 'assinaturas', label: 'Meus planos', icon: Crown },
+  { id: 'calendario', label: 'Calendário', icon: CalendarDays },
   { id: 'clientes', label: 'Clientes', icon: Users },
   { id: 'barbeiros', label: 'Barbeiros', icon: Scissors },
   { id: 'servicos', label: 'Serviços', icon: Sparkles },
+  { id: 'mensalidades', label: 'Planos de clientes', icon: Crown },
   { id: 'financeiro', label: 'Financeiro', icon: Wallet },
   { id: 'comissoes', label: 'Comissões', icon: Banknote },
   { id: 'estoque', label: 'Estoque', icon: Package },
   { id: 'crm', label: 'Relacionamento', icon: HeartHandshake },
-  { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
   { id: 'empresas', label: 'Empresas', icon: Building2 },
   { id: 'planos', label: 'Planos e assinatura', icon: Crown },
@@ -102,9 +115,19 @@ const navigation = [
 ];
 const rolePages: Record<Role, string[]> = {
   MASTER: ['dashboard', 'empresas', 'planos', 'configuracoes'],
-  EMPRESA: navigation.filter((n) => n.id !== 'empresas').map((n) => n.id),
-  BARBEIRO: ['dashboard', 'agenda', 'clientes', 'comissoes', 'configuracoes'],
-  CLIENTE: ['dashboard', 'agenda', 'configuracoes'],
+  EMPRESA: navigation.filter((n) => n.id !== 'empresas' && n.id !== 'assinaturas').map((n) => n.id),
+  BARBEIRO: [
+    'mensalidades',
+    'crm',
+    'chat',
+    'dashboard',
+    'agenda',
+    'calendario',
+    'clientes',
+    'comissoes',
+    'configuracoes',
+  ],
+  CLIENTE: ['assinaturas', 'chat', 'dashboard', 'agenda', 'configuracoes'],
 };
 const formSchema = z.object({
   name: z.string().min(2, 'Informe pelo menos 2 caracteres.'),
@@ -197,6 +220,7 @@ export default function App() {
   }, [mobile, compactSidebar]);
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState('Mês');
+  const [periodDate, setPeriodDate] = useState(today);
   const [day, setDay] = useState(today);
   const [barberFilter, setBarberFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -224,6 +248,7 @@ export default function App() {
   const [blockReason, setBlockReason] = useState('Almoço');
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [accessCompanyId, setAccessCompanyId] = useState<string | null>(null);
   const [newCompany, setNewCompany] = useState({
     name: '',
     slug: '',
@@ -281,8 +306,16 @@ export default function App() {
     error,
     isLoading,
   } = useQuery({
-    queryKey: ['snapshot', role, apiMode],
-    queryFn: () => snapshot(role),
+    queryKey: ['snapshot', role, apiMode, period, periodDate, day, page],
+    queryFn: () =>
+      snapshot(
+        role,
+        page === 'agenda'
+          ? { from: day, to: shiftDate(day, 1) }
+          : period === 'Data'
+            ? { from: periodDate, to: shiftDate(periodDate, 1) }
+            : undefined,
+      ),
     enabled: access && !restoring,
   });
   const data = allData
@@ -355,6 +388,7 @@ export default function App() {
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ['snapshot'] });
     await qc.invalidateQueries({ queryKey: ['slots'] });
+    await qc.invalidateQueries({ queryKey: ['calendar'] });
   };
   const run = async (fn: () => Promise<unknown>, message: string, close = true) => {
     setSaving(true);
@@ -423,12 +457,13 @@ export default function App() {
     queryFn: () => availableSlots(booking.barberId, booking.serviceId, booking.date),
     enabled: dialog === 'appointment' && !!booking.barberId && !!booking.serviceId,
   });
-  const from = new Date(`${today}T00:00:00-03:00`);
+  const periodEnd = period === 'Data' ? periodDate : today;
+  const from = new Date(`${periodEnd}T00:00:00-03:00`);
+  const until = new Date(`${shiftDate(periodEnd, 1)}T00:00:00-03:00`);
   if (period === 'Semana') from.setDate(from.getDate() - 6);
   if (period === 'Mês') from.setDate(1);
   const filtered = visibleAppointments.filter(
-    (a) =>
-      new Date(a.startsAt) >= from && new Date(a.startsAt) <= new Date(`${today}T23:59:59-03:00`),
+    (a) => new Date(a.startsAt) >= from && new Date(a.startsAt) < until,
   );
   const completed = filtered.filter((a) => a.status === 'FINALIZADO');
   const revenue = completed.reduce((s, a) => s + a.priceCents, 0);
@@ -436,16 +471,23 @@ export default function App() {
   const chartData = Array.from(
     {
       length:
-        period === 'Hoje' ? 12 : period === 'Semana' ? 7 : new Date(`${today}T12:00:00`).getDate(),
+        period === 'Hoje' || period === 'Data'
+          ? 12
+          : period === 'Semana'
+            ? 7
+            : new Date(`${today}T12:00:00`).getDate(),
     },
     (_, i) => {
       const d = new Date(from);
-      if (period === 'Hoje') {
+      if (period === 'Hoje' || period === 'Data') {
         d.setHours(i + 8);
       } else d.setDate(d.getDate() + i);
       const key = d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
       return {
-        name: period === 'Hoje' ? `${i + 8}h` : String(d.getDate()).padStart(2, '0'),
+        name:
+          period === 'Hoje' || period === 'Data'
+            ? `${i + 8}h`
+            : String(d.getDate()).padStart(2, '0'),
         value:
           completed
             .filter(
@@ -453,7 +495,8 @@ export default function App() {
                 new Date(a.startsAt).toLocaleDateString('en-CA', {
                   timeZone: 'America/Sao_Paulo',
                 }) === key &&
-                (period !== 'Hoje' || new Date(a.startsAt).getHours() === d.getHours()),
+                ((period !== 'Hoje' && period !== 'Data') ||
+                  new Date(a.startsAt).getHours() === d.getHours()),
             )
             .reduce((s, a) => s + a.priceCents, 0) / 100,
       };
@@ -570,16 +613,29 @@ export default function App() {
       />
     ) : null;
   const companiesTable = () => (
-    <Card className="mt-5">
-      <CardHeader>
-        <CardTitle>Empresas da plataforma</CardTitle>
+    <Card className="mt-5 companies-panel">
+      <CardHeader className="companies-heading">
+        <div>
+          <span className="companies-eyebrow">SUA REDE</span>
+          <CardTitle>Empresas da plataforma</CardTitle>
+          <p className="companies-description">
+            Gerencie os planos, a operação e os acessos de cada barbearia.
+          </p>
+        </div>
+        {accessCompanyId && (
+          <CompanyAccessDialog
+            key={accessCompanyId}
+            id={accessCompanyId}
+            onClose={() => setAccessCompanyId(null)}
+          />
+        )}
         <Button onClick={() => setDialog('company-create')}>
           <Plus size={16} />
           Nova empresa
         </Button>
       </CardHeader>
       <div className="table-wrap">
-        <table>
+        <table className="companies-table" aria-label="Empresas da plataforma">
           <thead>
             <tr>
               <th>Empresa</th>
@@ -596,59 +652,79 @@ export default function App() {
               .filter((c) => matches(c.name))
               .map((c) => (
                 <tr key={c.id}>
-                  <td>
+                  <td data-label="Empresa">
                     <div className="person">
                       <span className="unit-icon">
                         <Scissors size={17} />
                       </span>
-                      <b>{c.name}</b>
+                      <div className="company-name">
+                        <b>{c.name}</b>
+                        <span>Barbearia cadastrada</span>
+                      </div>
                     </div>
                   </td>
-                  <td>
-                    <Select
+                  <td data-label="Plano">
+                    <PlanSelect
                       value={c.plan.code}
-                      aria-label={`Plano de ${c.name}`}
-                      onChange={(e) =>
-                        run(
-                          () => companyChange(c.id, { planCode: e.target.value }),
-                          'Plano atualizado.',
-                          false,
-                        )
+                      label={`Plano de ${c.name}`}
+                      onChange={(planCode) =>
+                        run(() => companyChange(c.id, { planCode }), 'Plano atualizado.', false)
                       }
-                    >
-                      {['START', 'PRO', 'PREMIUM', 'ENTERPRISE'].map((p) => (
-                        <option key={p}>{p}</option>
-                      ))}
-                    </Select>
+                    />
                   </td>
-                  <td>
+                  <td data-label="Status">
                     <Badge status={c.status} />
                   </td>
-                  <td>
-                    {c.barbers} / {c.clients}
+                  <td data-label="Equipe / clientes">
+                    <span className="company-counts">
+                      <span>
+                        <Users size={14} /> {c.barbers} na equipe
+                      </span>
+                      <span>{c.clients} clientes</span>
+                    </span>
                   </td>
-                  <td>{c.lastAccessAt ? dateLabel(c.lastAccessAt) : 'Sem acesso'}</td>
-                  <td>{dateLabel(c.dueAt)}</td>
-                  <td>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        run(
-                          () =>
-                            companyChange(c.id, {
-                              status: c.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE',
-                            }),
-                          'Status atualizado.',
-                          false,
-                        )
-                      }
-                    >
-                      {c.status === 'ACTIVE' ? 'Suspender' : 'Ativar'}
-                    </Button>
+                  <td data-label="Último acesso">
+                    {c.lastAccessAt ? dateLabel(c.lastAccessAt) : 'Sem acesso'}
+                  </td>
+                  <td data-label="Vencimento">{dateLabel(c.dueAt)}</td>
+                  <td data-label="Ações">
+                    <div className="company-actions">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          run(
+                            () =>
+                              companyChange(c.id, {
+                                status: c.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE',
+                              }),
+                            'Status atualizado.',
+                            false,
+                          )
+                        }
+                      >
+                        {c.status === 'ACTIVE' ? 'Suspender' : 'Ativar'}
+                      </Button>
+                      <Button
+                        className="company-access-button"
+                        size="sm"
+                        onClick={() => setAccessCompanyId(c.id)}
+                        aria-label={`Gerenciar acesso de ${c.name}`}
+                      >
+                        <ShieldCheck size={15} />
+                        Gerenciar acesso
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
+            {data && !data.companies.some((c) => matches(c.name)) && (
+              <tr>
+                <td colSpan={7} className="companies-empty">
+                  Nenhuma empresa encontrada. Cadastre uma barbearia ou ajuste sua busca.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -657,6 +733,10 @@ export default function App() {
 
   const screen = () => {
     if (!data) return null;
+    if (page === 'assinaturas') return <SubscriptionsPage />;
+    if (page === 'mensalidades')
+      return <MembershipPage data={data} canConnect={role === 'EMPRESA'} />;
+    if (page === 'chat') return <ChatPage role={role} initialId={selected?.id} />;
     if (page === 'dashboard') {
       if (role === 'MASTER') return masterDashboard();
       if (role === 'CLIENTE') {
@@ -720,6 +800,17 @@ export default function App() {
         </>
       );
     }
+    if (page === 'calendario' && (role === 'EMPRESA' || role === 'BARBEIRO'))
+      return (
+        <CalendarPage
+          unitId={selectedUnit}
+          barberId={role === 'BARBEIRO' ? ownBarber : undefined}
+          onDetails={(a) => {
+            setSelected(a);
+            setDialog('detail');
+          }}
+        />
+      );
     if (page === 'agenda')
       return (
         <>
@@ -737,12 +828,7 @@ export default function App() {
               >
                 <ChevronLeft size={17} />
               </Button>
-              <Input
-                aria-label="Dia da agenda"
-                type="date"
-                value={day}
-                onChange={(e) => setDay(e.target.value)}
-              />
+              <DatePicker label="Dia da agenda" value={day} onChange={setDay} />
               <Button
                 size="icon"
                 variant="ghost"
@@ -759,31 +845,25 @@ export default function App() {
                 Hoje
               </Button>
             </div>
-            <div className="flex gap-2">
-              <Select
-                aria-label="Filtrar por barbeiro"
+            <div className="agenda-filters">
+              <FilterSelect
+                label="Filtrar por barbeiro"
                 value={barberFilter}
-                onChange={(e) => setBarberFilter(e.target.value)}
-              >
-                <option value="all">Todos os barbeiros</option>
-                {data.barbers.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                aria-label="Filtrar por status"
+                onChange={setBarberFilter}
+                options={[
+                  { value: 'all', label: 'Todos os barbeiros' },
+                  ...data.barbers.map((b) => ({ value: b.id, label: b.name })),
+                ]}
+              />
+              <FilterSelect
+                label="Filtrar por status"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">Todos os status</option>
-                {Object.entries(statusLabels).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </Select>
+                onChange={setStatusFilter}
+                options={[
+                  { value: 'all', label: 'Todos os status' },
+                  ...Object.entries(statusLabels).map(([value, label]) => ({ value, label })),
+                ]}
+              />
               {role === 'EMPRESA' && (
                 <Button variant="outline" onClick={() => setDialog('block')}>
                   <Clock3 size={16} />
@@ -1005,7 +1085,9 @@ export default function App() {
         </>
       );
     if (page === 'financeiro') {
-      const es = data.entries.filter((e) => new Date(e.occurredAt) >= from),
+      const es = data.entries.filter(
+          (e) => new Date(e.occurredAt) >= from && new Date(e.occurredAt) < until,
+        ),
         income = es.filter((e) => e.type === 'INCOME').reduce((s, e) => s + e.amountCents, 0),
         expense = es.filter((e) => e.type === 'EXPENSE').reduce((s, e) => s + e.amountCents, 0);
       return (
@@ -1039,7 +1121,6 @@ export default function App() {
                     .filter((e) => matches(e.description))
                     .slice()
                     .reverse()
-                    .slice(0, 100)
                     .map((e) => (
                       <tr key={e.id}>
                         <td>{e.description}</td>
@@ -1266,6 +1347,7 @@ export default function App() {
         );
       return (
         <>
+          <ClientPodium role={role} barberId={ownBarber} />
           <div className="stats-grid three">
             <Kpi
               title="Clientes ativos"
@@ -1279,7 +1361,7 @@ export default function App() {
             />
             <Kpi title="Aniversariantes do mês" value={String(birthdays.length)} icon={Star} />
           </div>
-          <Card className="mt-6">
+          <Card className="mt-6 crm-reconnect">
             <CardHeader>
               <div>
                 <CardTitle>É hora de se reconectar</CardTitle>
@@ -1330,11 +1412,12 @@ export default function App() {
               )}
             </CardContent>
           </Card>
-          <Card className="mt-5">
+          <Card className="mt-5 crm-birthdays">
             <CardHeader>
               <CardTitle>Aniversariantes do mês</CardTitle>
             </CardHeader>
             <CardContent>
+              {birthdays.length === 0 && <Empty>Nenhum aniversário cadastrado neste mês.</Empty>}
               {birthdays.map((c) => (
                 <div className="dre-row" key={c.id}>
                   <b>{c.name}</b>
@@ -1677,7 +1760,11 @@ export default function App() {
   const titles: Record<string, string> = {
     dashboard:
       role === 'MASTER' ? 'Visão da plataforma' : role === 'CLIENTE' ? 'Seu espaço' : 'Visão geral',
+    chat: 'Conversas',
     agenda: 'Agenda',
+    assinaturas: 'Meus planos',
+    mensalidades: 'Planos de clientes',
+    calendario: 'Calendário',
     clientes: 'Clientes',
     barbeiros: 'Sua equipe',
     servicos: 'Serviços',
@@ -1698,7 +1785,10 @@ export default function App() {
         : role === 'CLIENTE'
           ? 'Seu cuidado, no seu tempo.'
           : 'Sua barbearia em sintonia. Confira os resultados.',
+    chat: 'Converse sobre seus agendamentos.',
     agenda: 'Organize o dia. Cuide de cada detalhe.',
+    mensalidades: 'Configure serviços, dias e valores da assinatura.',
+    calendario: 'Seus horários, clientes e atendimentos em um só lugar.',
     clientes: 'Conheça quem confia no seu trabalho.',
     barbeiros: 'Talento e cuidado, trabalhando juntos.',
     servicos: 'O seu trabalho merece uma boa apresentação.',
@@ -2015,7 +2105,7 @@ export default function App() {
             role !== 'CLIENTE' && (
               <div className="period-bar">
                 <div className="segmented" role="group" aria-label="Período dos indicadores">
-                  {['Hoje', 'Semana', 'Mês'].map((p) => (
+                  {['Hoje', 'Semana', 'Mês', 'Data'].map((p) => (
                     <button
                       aria-pressed={period === p}
                       className={period === p ? 'selected' : ''}
@@ -2026,9 +2116,16 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+                {period === 'Data' && (
+                  <DatePicker
+                    value={periodDate}
+                    onChange={setPeriodDate}
+                    label="Data dos indicadores"
+                  />
+                )}
                 <span className="date-range">
                   <CalendarDays size={15} />
-                  {dateLabel(from.toISOString())} – {dateLabel(`${today}T12:00:00-03:00`)}
+                  {dateLabel(from.toISOString())} – {dateLabel(`${periodEnd}T12:00:00-03:00`)}
                   <ChevronDown size={13} />
                 </span>
               </div>
@@ -2182,13 +2279,13 @@ export default function App() {
           {dialog === 'entries' && (
             <>
               <Field label="Tipo">
-                <Select {...form.register('type')}>
+                <Select {...form.register('type')} value={form.watch('type') || ''}>
                   <option value="INCOME">Entrada</option>
                   <option value="EXPENSE">Saída</option>
                 </Select>
               </Field>
               <Field label="Pagamento">
-                <Select {...form.register('method')}>
+                <Select {...form.register('method')} value={form.watch('method') || ''}>
                   {['PIX', 'DINHEIRO', 'CREDITO', 'DEBITO'].map((m) => (
                     <option key={m}>{m}</option>
                   ))}
@@ -2358,6 +2455,16 @@ export default function App() {
         title="Detalhes do atendimento"
         description={selected?.client.name}
       >
+        <Button
+          variant="outline"
+          onClick={() => {
+            setDialog('');
+            setPage('chat');
+            location.hash = 'chat';
+          }}
+        >
+          Conversar sobre este agendamento
+        </Button>
         {selected && (
           <div className="form-grid">
             <div className="appointment-detail">

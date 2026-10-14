@@ -1,3 +1,8 @@
+import { CheckoutController } from './http/checkout.controller';
+import { PaymentsController } from './http/payments.controller';
+import { MembershipsController } from './http/memberships.controller';
+import { RewardsController } from './http/rewards.controller';
+import { ChatController } from './http/chat.controller';
 import { UsersController } from './http/users.controller';
 import { TenantRepository } from './domain/repository';
 import 'reflect-metadata';
@@ -62,6 +67,11 @@ class HealthController {
     ReportsController,
     UploadsController,
     UsersController,
+    ChatController,
+    RewardsController,
+    MembershipsController,
+    PaymentsController,
+    CheckoutController,
   ],
   providers: [
     Database,
@@ -81,7 +91,7 @@ class HealthController {
 })
 class AppModule {}
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { logger: ['error', 'warn', 'log'] });
+  const app = await NestFactory.create(AppModule, { rawBody: true, logger: ['error', 'warn', 'log'] });
   app.enableShutdownHooks();
   app.setGlobalPrefix('api');
   app.use(helmet());

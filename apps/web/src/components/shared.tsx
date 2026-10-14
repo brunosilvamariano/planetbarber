@@ -1,3 +1,4 @@
+import { SystemSelect } from './SystemSelect';
 import type React from 'react';
 import type { ReactNode } from 'react';
 import { CalendarDays, ArrowUpRight, Users } from 'lucide-react';
@@ -63,13 +64,7 @@ export function Field({
     </label>
   );
 }
-export function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select className="select" {...props}>
-      {children}
-    </select>
-  );
-}
+export const Select = SystemSelect;
 export function Kpi({
   title,
   value,

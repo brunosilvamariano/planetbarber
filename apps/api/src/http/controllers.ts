@@ -306,14 +306,19 @@ export class AuthController {
 @Controller()
 export class CatalogController {
   constructor(@Inject(CatalogService) private catalog: CatalogService) {}
-  @Get(catalogPaths) list(@Req() req: AuthRequest) {
+  @Get(catalogPaths) list(@Req() req: AuthRequest, @Query() query: any) {
     const entity = entityFor(req.path);
     if (
       ['entries', 'products', 'categories', 'suppliers'].includes(entity) &&
       req.actor.role !== 'EMPRESA'
     )
       throw new ForbiddenException();
-    return this.catalog.list(req.actor, entity);
+    return this.catalog.list(
+      req.actor,
+      entity,
+      entity === 'entries' && query.from ? range(query) : undefined,
+      parse(z.coerce.number().int().min(0).max(1000000), query.skip ?? 0),
+    );
   }
   @Post(catalogPaths) @Roles('EMPRESA') create(@Req() req: AuthRequest, @Body() body: unknown) {
     const entity = entityFor(req.path);
@@ -370,7 +375,12 @@ export class AppointmentsController {
       ...query,
       to: query.to || new Date(Date.now() + 90 * 86400000).toISOString(),
     });
-    return this.appointments.list(req.actor, from, to);
+    return this.appointments.list(
+      req.actor,
+      from,
+      to,
+      parse(z.coerce.number().int().min(0).max(1000000), query.skip ?? 0),
+    );
   }
   @Get('slots') slots(@Req() req: AuthRequest, @Query() query: any) {
     const input = parse(z.object({ barberId: uuid, serviceId: uuid, date }), query);
@@ -562,6 +572,23 @@ export class MasterController {
   }
   @Get('companies') companies(@Req() req: AuthRequest) {
     return this.master.companies(req.actor);
+  }
+  @Get('companies/:id/access') access(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.master.access(req.actor, parse(uuid, id));
+  }
+  @Post('companies/:id/managers/:userId/password') resetPassword(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parse(z.object({ password: z.string().min(12).max(128) }).strict(), body);
+    return this.master.resetManagerPassword(
+      req.actor,
+      parse(uuid, id),
+      parse(uuid, userId),
+      input.password,
+    );
   }
   @Get('companies/:id/metrics') companyMetrics(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.master.companyMetrics(req.actor, parse(uuid, id));

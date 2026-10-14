@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {membershipPrice} from '../src/domain/membership';
+test('unlimited plan covers permitted days, outside rate and avulso fallback',()=>{const p={days:[1,2,3,4],outside_price_cents:6000};for(const day of p.days)assert.equal(membershipPrice(8000,day,p),0);assert.equal(membershipPrice(8000,5,p),6000);assert.equal(membershipPrice(8000,0,{...p,outside_price_cents:null}),8000);assert.equal(membershipPrice(8000,1),8000);assert.equal(membershipPrice(8000,5,{...p,outside_price_cents:0}),0);});

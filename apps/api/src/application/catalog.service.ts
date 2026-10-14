@@ -46,10 +46,11 @@ export class CatalogService {
       throw new ForbiddenException('Recurso indisponível no plano.');
     return company.plan;
   }
-  async list(actor: Actor, entity: Entity) {
+  async list(actor: Actor, entity: Entity, dates?: { from: Date; to: Date }, skip = 0) {
     return this.db.transaction(actor, async (tx) => {
       await this.plan(tx, actor, entity);
       const where: any = { tenantId: actor.tenantId };
+      if (entity === 'entries' && dates) where.occurredAt = { gte: dates.from, lt: dates.to };
       if (entity === 'clients' && actor.role === 'BARBEIRO')
         where.appointments = { some: appointmentScope(actor) };
       if (entity === 'clients' && actor.role === 'CLIENTE') {
@@ -64,7 +65,8 @@ export class CatalogService {
         });
       return (tx[models[entity]] as any).findMany({
         where,
-        orderBy: entity === 'entries' ? { occurredAt: 'desc' } : { id: 'asc' },
+        orderBy: entity === 'entries' ? [{ occurredAt: 'desc' }, { id: 'asc' }] : { id: 'asc' },
+        skip,
         take: 1000,
       });
     });

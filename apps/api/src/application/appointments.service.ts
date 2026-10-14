@@ -1,3 +1,4 @@
+import { membershipPrice } from '../domain/membership';
 import { TenantRepository } from '../domain/repository';
 import {
   Injectable,
@@ -28,7 +29,7 @@ export interface Booking {
 @Injectable()
 export class AppointmentsService {
   constructor(@Inject(TenantRepository) private db: TenantRepository) {}
-  async list(actor: Actor, from?: Date, to?: Date) {
+  async list(actor: Actor, from?: Date, to?: Date, skip = 0) {
     return this.db.transaction(actor, (tx) =>
       tx.appointment.findMany({
         where: {
@@ -37,7 +38,8 @@ export class AppointmentsService {
           startsAt: { gte: from, lt: to },
         },
         include,
-        orderBy: { startsAt: 'desc' },
+        orderBy: [{ startsAt: 'desc' }, { id: 'asc' }],
+        skip,
         take: 1000,
       }),
     );
@@ -187,7 +189,19 @@ export class AppointmentsService {
       (await tx.scheduleBlock.findFirst({ where }))
     )
       throw new ConflictException('Esse horário está ocupado. Escolha outro.');
-    return { startsAt, endsAt, barber, service, client };
+    const plans: { days: number[]; outside_price_cents: number | null }[] =
+      await tx.$queryRawUnsafe(
+        'SELECT p.days,s.outside_price_cents FROM client_memberships m JOIN monthly_plans p ON p.id=m.plan_id AND p.tenant_id=m.tenant_id JOIN monthly_plan_services s ON s.plan_id=p.id AND s.tenant_id=p.tenant_id WHERE m.tenant_id=$1::uuid AND m.client_id=$2::uuid AND p.barber_id=$3::uuid AND s.service_id=$4::uuid AND m.starts_on<=$5::date AND m.ends_on>=$5::date AND m.paid_until>$6',
+        actor.tenantId,
+        client.id,
+        barber.id,
+        service.id,
+        start.toISODate(),
+        startsAt,
+      );
+    const membership = plans[0];
+    const bookingPriceCents = membershipPrice(service.priceCents, start.weekday % 7, membership);
+    return { startsAt, endsAt, barber, service, client, bookingPriceCents };
   }
   private async scheduleNotifications(
     tx: Prisma.TransactionClient,
@@ -227,7 +241,11 @@ export class AppointmentsService {
   async create(actor: Actor, input: Booking) {
     return this.db.transaction(actor, async (tx) => {
       await lock(tx, `schedule:${actor.tenantId}:${input.barberId}`);
-      const { barber, service, startsAt, endsAt } = await this.validateBooking(tx, actor, input);
+      const { barber, service, startsAt, endsAt, bookingPriceCents } = await this.validateBooking(
+        tx,
+        actor,
+        input,
+      );
       const row = await tx.appointment.create({
         data: {
           tenantId: actor.tenantId,
@@ -237,7 +255,7 @@ export class AppointmentsService {
           clientId: input.clientId,
           startsAt,
           endsAt,
-          priceCents: service.priceCents,
+          priceCents: bookingPriceCents,
           commissionPercent: barber.commissionPercent,
         },
         include,
@@ -263,7 +281,7 @@ export class AppointmentsService {
         throw new ConflictException('Este agendamento não pode ser reagendado.');
       if (actor.role === 'CLIENTE' && input.clientId !== existing.clientId)
         throw new ForbiddenException();
-      const { barber, service, startsAt, endsAt } = await this.validateBooking(
+      const { barber, service, startsAt, endsAt, bookingPriceCents } = await this.validateBooking(
         tx,
         actor,
         input,
@@ -282,7 +300,7 @@ export class AppointmentsService {
           serviceId: service.id,
           startsAt,
           endsAt,
-          priceCents: service.priceCents,
+          priceCents: bookingPriceCents,
           commissionPercent: barber.commissionPercent,
           status: 'AGENDADO',
         },

@@ -506,7 +506,10 @@ export async function logout() {
     resumePromise = null;
   }
 }
-export async function snapshot(role: Role): Promise<Snapshot> {
+export async function snapshot(
+  role: Role,
+  dates?: { from: string; to: string },
+): Promise<Snapshot> {
   if (mode === 'demo') return structuredClone(demo);
   if (role !== 'MASTER') {
     const company = await request('company');
@@ -537,7 +540,15 @@ export async function snapshot(role: Role): Promise<Snapshot> {
     role === 'EMPRESA' && authFeatures.includes('whatsapp'),
   ];
   const results = await Promise.all(
-    paths.map((p, i) => (allowed[i] ? request(p) : Promise.resolve([]))),
+    paths.map((p, i) =>
+      !allowed[i]
+        ? Promise.resolve([])
+        : p === 'appointments' && dates
+          ? appointmentsInRange(dates.from, dates.to)
+          : p === 'financial/entries' && dates
+            ? entriesInRange(dates.from, dates.to)
+            : request(p),
+    ),
   );
   const metrics = role === 'MASTER' ? await request('master/metrics') : undefined;
   return {
@@ -790,3 +801,73 @@ export async function provisionCompany(payload: {
   demo.companies.push(company);
   return company;
 }
+
+export interface CompanyAccess {
+  name: string;
+  slug: string;
+  managers: { id: string; name: string; email: string; active: boolean }[];
+}
+export async function companyAccess(id: string): Promise<CompanyAccess> {
+  if (mode !== 'api')
+    throw new Error('Gerenciamento de acesso disponível ao entrar com sua conta Master.');
+  return request('master/companies/' + id + '/access');
+}
+export async function resetManagerPassword(id: string, userId: string, password: string) {
+  if (mode !== 'api') throw new Error('Entre com sua conta Master para redefinir senhas.');
+  return request('master/companies/' + id + '/managers/' + userId + '/password', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}
+
+export async function appointmentsInRange(from: string, to: string): Promise<Appointment[]> {
+  const start = new Date(from + 'T00:00:00-03:00').toISOString();
+  const end = new Date(to + 'T00:00:00-03:00').toISOString();
+  if (mode === 'demo')
+    return structuredClone(
+      demo.appointments.filter((a) => a.startsAt >= start && a.startsAt < end),
+    );
+  const rows: Appointment[] = [];
+  for (let skip = 0; ; skip += 1000) {
+    const page: Appointment[] = await request(
+      'appointments?' + new URLSearchParams({ from: start, to: end, skip: String(skip) }),
+    );
+    rows.push(...page);
+    if (page.length < 1000) return rows;
+  }
+}
+
+async function entriesInRange(from: string, to: string): Promise<Entry[]> {
+  const rows: Entry[] = [];
+  for (let skip = 0; ; skip += 1000) {
+    const page: Entry[] = await request(
+      'financial/entries?' +
+        new URLSearchParams({
+          from: new Date(from + 'T00:00:00-03:00').toISOString(),
+          to: new Date(to + 'T00:00:00-03:00').toISOString(),
+          skip: String(skip),
+        }),
+    );
+    rows.push(...page);
+    if (page.length < 1000) return rows;
+  }
+}
+
+export const chatAppointments = () => { if (mode !== 'api') throw new Error('Entre com sua conta para usar o chat.'); return request('chat'); };
+export const chatMessages = (id: string) => request('chat/'+id);
+export const sendChatMessage = (id: string, body: string) => request('chat/'+id,{method:'POST',body:JSON.stringify({body})});
+
+export const listRewards=()=>request('rewards');
+export const createReward=(clientId:string,description:string)=>request('rewards',{method:'POST',body:JSON.stringify({clientId,description})});
+export const deliverReward=(id:string)=>request('rewards/'+id,{method:'PATCH'});
+
+export const memberships=()=>request('memberships');
+export const createMonthlyPlan=(payload:unknown)=>request('memberships/plans',{method:'POST',body:JSON.stringify(payload)});
+export const enrollMembership=(payload:unknown)=>request('memberships',{method:'POST',body:JSON.stringify(payload)});
+
+export const connectStripe=()=>request('payments/connect',{method:'POST'});
+
+export const clientSubscriptions=()=>request('subscriptions');
+export const subscriptionCheckout=(planId:string)=>request('subscriptions/checkout',{method:'POST',body:JSON.stringify({planId})});
+
+export const subscriptionPortal=(membershipId:string)=>request('subscriptions/portal',{method:'POST',body:JSON.stringify({membershipId})});

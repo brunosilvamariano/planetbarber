@@ -1,0 +1,1 @@
+export function membershipPrice(base:number,weekday:number,membership?:{days:number[];outside_price_cents:number|null}) {return membership ? membership.days.includes(weekday) ? 0 : membership.outside_price_cents ?? base : base;}

@@ -23,6 +23,46 @@ export class MasterService {
       );
     });
   }
+  private requireMaster(actor: Actor) {
+    if (actor.role !== 'MASTER' || actor.tenantId !== SYSTEM_TENANT)
+      throw new ForbiddenException('Acesso exclusivo do Master.');
+  }
+  async access(actor: Actor, id: string) {
+    this.requireMaster(actor);
+    return this.db.transaction(actor, async (tx) => {
+      const company = await tx.company.findUnique({ where: { id } });
+      if (!company || company.tenantId === SYSTEM_TENANT) throw new NotFoundException();
+      const managers = await tx.user.findMany({
+        where: { tenantId: company.tenantId, role: 'EMPRESA' },
+        select: { id: true, name: true, email: true, active: true },
+        orderBy: { name: 'asc' },
+      });
+      return { name: company.name, slug: company.slug, managers };
+    });
+  }
+  async resetManagerPassword(actor: Actor, id: string, userId: string, password: string) {
+    this.requireMaster(actor);
+    const passwordHash = await hash(password, 12);
+    return this.db.transaction(actor, async (tx) => {
+      const company = await tx.company.findUnique({ where: { id } });
+      if (!company || company.tenantId === SYSTEM_TENANT) throw new NotFoundException();
+      const manager = await tx.user.findFirst({
+        where: { id: userId, tenantId: company.tenantId, role: 'EMPRESA', active: true },
+        select: { id: true },
+      });
+      if (!manager) throw new NotFoundException('Gestor ativo não encontrado nesta empresa.');
+      await tx.user.update({
+        where: { tenantId_id: { tenantId: company.tenantId, id: userId } },
+        data: { passwordHash },
+      });
+      await tx.refreshToken.updateMany({
+        where: { tenantId: company.tenantId, userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await audit(tx, actor, 'RESET_MANAGER_PASSWORD', 'users', userId, { companyId: id });
+      return { success: true };
+    });
+  }
   async metrics(actor: Actor) {
     return this.db.transaction(actor, async (tx) => {
       const month = new Date();
